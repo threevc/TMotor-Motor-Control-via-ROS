@@ -1,0 +1,12 @@
+This code can be uploaded to an Arduino, connected to a motor through an MCP
+Change motor id for motors which do not have an ID of 1
+
+Inspired by code from https://maker.pro/arduino/tutorial/how-to-use-arduino-with-robot-operating-system-ros
+
+On separate terminal windows run 
+roscore
+rosrun rosserial_python serial_node.py /dev/tty<USB# or ACM#> ##(eg /dev/ttyUSB0)
+rostopic echo velocity_feedback
+rostopic echo position_feedback
+rostopic pub toggle_led std_msgs/Float32 "data : 0" ##(replace 0 with data to be sent)
+
