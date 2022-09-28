@@ -1,0 +1,8 @@
+prefix=/home/trivikram/ros_pkgs/motor_control_ws/install
+
+Name: motor_control_pkg
+Description: Description of motor_control_pkg
+Version: 0.0.0
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

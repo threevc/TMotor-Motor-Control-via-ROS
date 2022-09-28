@@ -1,0 +1,1 @@
+/usr/bin/c++    -rdynamic CMakeFiles/hello_node.dir/src/hi.cpp.o  -o /home/trivikram/ros_pkgs/motor_control_ws/devel/lib/motor_control_pkg/hello_node 

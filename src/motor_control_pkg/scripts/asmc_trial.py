@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+
+import sys
+import rospy
+import numpy as np
+from std_msgs.msg import Float32,Float64MultiArray,Int32
+import time
+
+# Control Equation - u = -(lambda)*s + rho*signum(s)
+# Lambda
+# tau = u = -lamb*s - rho*sign(s)
+# Get target -> get feedback -> to the calculations to give the output and to update the controller
+
+class asmc:
+
+    def __init__(self):
+
+        # self.Kp0 = np.array([1.0, 1.0, 1.0])
+        # self.Kp1 = np.array([2.0, 2.0, 1.0])
+        # self.Lam = np.array([2.2, 2.2, 5.0])  # Change 1
+        # self.Phi = np.array([1.5, 1.5, 1.1])
+
+        self.M = 0.4                          # Change 2
+        # self.alpha_0 = np.array([1,1,1])
+        # self.alpha_1 = np.array([3,3,3])
+        self.alpha_m = 0.05                   # Change 3
+        self.v = 0.1
+        self.prev_time = time.time()
+
+        self.lamb = 1                         # tau = -lamb*s - rho*sign(s)
+        self.sv = 0                           # s = phi*err_pos + err_vel
+        self.rho = 0                          # rho = Ko + K1*abs(pos)
+        self.K = np.array([0, 0])             # K0 = abs(s) - alpha0 * K0 | K1 = abs*s)*abs(pos) - alpha1*K1
+        self.alpha = np.array([0, 0])         # coefficients of K in the rho equation
+        self.phi = 1
+        self.M = 0.4
+        self.alpha_m = 0.05
+        
+    def asmc_control(self):
+        self.position_desired, self.velocity_desired = self.generate_pos_vel()
+
+        self.position_error = self.position_desired - self.position
+        self.velocity_error = self.velocity_desired - self.velocity
+
+        print('Err | Pos | Vel | P_Des | V_Des | Tor = ', round(self.position_error, 3), round(self.position, 2),
+          round(self.velocity, 2), self.position_desired, self.velocity_desired, self.torque)
+
+        self.sv = self.velocity_error + self.phi * self.position_error
+        self.torque = -self.lamb*self.sv - self.rho*np.sign(self.sv)
+        self.rho = self.K[0] + self.K[1]*abs(self.position)
+        
+
+        self.pub.publish(self.torque)
+
+
+
+    def generate_pos_vel(self):
+        seconds = int(time.time())
+        seconds = seconds - 100 * int(seconds / 100)
+        # pos = float(math.sin(seconds*math.pi/6))
+        pos = int(seconds / 4)
+        while pos > 25:
+            pos = pos - 25
+        pos = pos - 12.5
+        vel = float(0)
+        return pos, vel
+    
+
+    def th_des(self):
+        dt = rospy.get_time() - self.prev_time
+        self.prev_time = self.prev_time + dt
+        if dt > 0.04:
+            dt = 0.04
+
+        curPos = self.vector2Arrays(self.cur_pose.pose.position)
+        desPos = self.vector2Arrays(self.sp.pose.position)
+        curVel = self.vector2Arrays(self.cur_vel.twist.linear)
+
+        errPos = curPos - desPos
+        errVel = curVel - self.desVel
+        sv = errVel + np.multiply(self.Phi, errPos)
+        #print(errPos)
+        #print("------------------")
+
+        if self.armed:
+            self.Kp0 += (sv - np.multiply(self.alpha_0, self.Kp0))*dt
+            self.Kp1 += (sv - np.multiply(self.alpha_1, self.Kp1))*dt
+            self.Kp0 = np.maximum(self.Kp0, 0.0001*np.ones(3))
+            self.Kp1 = np.maximum(self.Kp1, 0.0001*np.ones(3))
+            self.M += (-sv[2] - self.alpha_m*self.M)*dt
+            self.M = np.maximum(self.M, 0.1)
+            # print(self.M)
+
+        Rho = self.Kp0 + self.Kp1*errPos
+
+        delTau = np.zeros(3)
+        delTau[0] = Rho[0]*self.sigmoid(sv[0],self.v)
+        delTau[1] = Rho[1]*self.sigmoid(sv[1],self.v)
+        delTau[2] = Rho[2]*self.sigmoid(sv[2],self.v)
+
+        des_th = -np.multiply(self.Lam, sv) - delTau + self.M*self.gravity
+
+        # self.array2Vector3(sv, self.data_out.sp)
+        # self.array2Vector3(self.Kp0, self.data_out.Kp_hat)
+        # self.array2Vector3(errPos, self.data_out.position_error)
+        # self.array2Vector3(errVel, self.data_out.velocity_error)
+        # self.array2Vector3(delTau, self.data_out.delTau_p)
+        # self.array2Vector3(Rho, self.data_out.rho_p)
+        # self.data_out.M_hat = self.M
+
+
+        if np.linalg.norm(des_th) > self.max_th:
+            des_th = (self.max_th/np.linalg.norm(des_th))*des_th
+
+        return des_th

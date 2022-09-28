@@ -1,0 +1,2 @@
+motor_control_pkg
+-DCATKIN_DEVEL_PREFIX=/home/trivikram/ros_pkgs/motor_control_ws/devel -DCMAKE_INSTALL_PREFIX=/home/trivikram/ros_pkgs/motor_control_ws/install -G Unix Makefiles
